@@ -1,25 +1,24 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from sklearn.tree import DecisionTreeClassifier
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import warnings
+warnings.filterwarnings("ignore")
 
-# --- Giao diện Streamlit ---
-st.title("Customer Churn Prediction - Decision Tree")
-st.markdown("Ứng dụng này dự đoán khách hàng có rời bỏ ngân hàng hay không.")
+# --- Cấu hình giao diện ---
+st.set_page_config(layout="wide")
+st.title("📊 Customer Churn Analysis Dashboard")
 
 # --- Load dữ liệu ---
 @st.cache_data
 def load_data():
     df = pd.read_csv("BankChurners.csv")
-    df.drop(['CLIENTNUM'], axis=1, inplace=True)
+    df = df.drop(['CLIENTNUM'], axis=1)
     df['Attrition_Flag'] = df['Attrition_Flag'].map({
         'Existing Customer': 0,
         'Attrited Customer': 1
     })
-    # Mã hóa các biến dạng object
     cat_cols = df.select_dtypes(include='object').columns
     le = LabelEncoder()
     for col in cat_cols:
@@ -27,42 +26,56 @@ def load_data():
     return df
 
 df = load_data()
-st.subheader("Dữ liệu gốc")
-st.write(df.head())
 
-# --- Tách biến ---
-X = df.drop('Attrition_Flag', axis=1)
-y = df['Attrition_Flag']
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, stratify=y, random_state=42
-)
+# --- Hiển thị dữ liệu ---
+st.subheader("📄 Bảng dữ liệu đầu vào")
+st.dataframe(df.head())
 
-# --- Huấn luyện mô hình ---
-model = DecisionTreeClassifier(max_depth=5, random_state=42)
-model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
+# --- Biểu đồ 1: Phân phối khách hàng ---
+st.subheader("📊 Biểu đồ phân phối trạng thái khách hàng")
+fig1, ax1 = plt.subplots()
+sns.countplot(data=df, x='Attrition_Flag', ax=ax1)
+ax1.set_title("Customer Churn Distribution")
+ax1.set_xticks([0, 1])
+ax1.set_xticklabels(['Existing', 'Attrited'])
+st.pyplot(fig1)
 
-# --- Hiển thị kết quả ---
-st.subheader("Kết quả dự đoán trên tập kiểm tra")
-st.write(f"🎯 Accuracy: `{accuracy:.4f}`")
-st.text("Classification Report:")
-st.text(classification_report(y_test, y_pred))
+# --- Biểu đồ 2: Phân phối giới tính ---
+st.subheader("📊 Biểu đồ giới tính khách hàng")
+fig2, ax2 = plt.subplots()
+sns.countplot(data=df, x='Gender', hue='Attrition_Flag', ax=ax2)
+ax2.set_title("Gender vs Churn")
+ax2.set_xticks([0, 1])
+ax2.set_xticklabels(['F', 'M'])
+st.pyplot(fig2)
 
-# --- Dự đoán với dữ liệu người dùng ---
-st.subheader("Dự đoán khách hàng mới")
+# --- Biểu đồ 3: Heatmap tương quan ---
+st.subheader("🔍 Ma trận tương quan giữa các biến")
+fig3, ax3 = plt.subplots(figsize=(12, 10))
+sns.heatmap(df.corr(), cmap='coolwarm', annot=False, ax=ax3)
+ax3.set_title("Correlation Matrix")
+st.pyplot(fig3)
 
-user_input = X.columns
-input_data = {}
+# --- Biểu đồ 4: Phân phối thu nhập ---
+st.subheader("💰 Thu nhập và tỷ lệ rời bỏ")
+fig4, ax4 = plt.subplots()
+sns.boxplot(data=df, x='Attrition_Flag', y='Income_Category', ax=ax4)
+ax4.set_title("Income vs Churn")
+ax4.set_xticklabels(['Existing', 'Attrited'])
+st.pyplot(fig4)
 
-for feature in user_input:
-    input_data[feature] = st.number_input(f"{feature}", value=float(X[feature].mean()))
+# --- Biểu đồ 5: Số lượng sản phẩm sử dụng ---
+st.subheader("📦 Số sản phẩm sử dụng và tỷ lệ rời bỏ")
+fig5, ax5 = plt.subplots()
+sns.countplot(data=df, x='Total_Relationship_Count', hue='Attrition_Flag', ax=ax5)
+ax5.set_title("Product Usage vs Churn")
+st.pyplot(fig5)
 
-input_df = pd.DataFrame([input_data])
-prediction = model.predict(input_df)[0]
-
-if st.button("Dự đoán"):
-    if prediction == 1:
-        st.error("⚠️ Dự đoán: Khách hàng có thể sẽ rời bỏ.")
-    else:
-        st.success("✅ Dự đoán: Khách hàng sẽ tiếp tục sử dụng dịch vụ.")
+# --- Biểu đồ 6: Tổng số dư thẻ ---
+st.subheader("💳 Tổng số dư thẻ vs tình trạng rời bỏ")
+fig6, ax6 = plt.subplots()
+sns.kdeplot(data=df[df['Attrition_Flag'] == 0]['Total_Revolving_Bal'], label='Existing', shade=True)
+sns.kdeplot(data=df[df['Attrition_Flag'] == 1]['Total_Revolving_Bal'], label='Attrited', shade=True)
+ax6.set_title("Total Revolving Balance Distribution")
+ax6.legend()
+st.pyplot(fig6)
